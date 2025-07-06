@@ -1,0 +1,27 @@
+[
+    {
+        "Pergunta": "Qual é a capital do Brasil?",
+        "Opções": ["A) Rio de Janeiro", "B) Brasília", "C) São Paulo", "D) Salvador"],
+        "Alternativa correta": "B"
+    },
+    {
+        "Pergunta": "Quantos bits tem um byte?",
+        "Opções": ["A) 4", "B) 8", "C) 16", "D) 32"],
+        "Alternativa correta": "B"
+    },
+    {
+        "Pergunta": "Qual protocolo é orientado a conexão?",
+        "Opções": ["A) UDP", "B) TCP", "C) HTTP", "D) ICMP"],
+        "Alternativa correta": "B"
+    },
+    {
+        "Pergunta": "Em que ano Python foi lançado?",
+        "Opções": ["A) 1989", "B) 1991", "C) 1995", "D) 2000"],
+        "Alternativa correta": "B"
+    },
+    {
+        "Pergunta": "Qual comando lista arquivos no Linux?",
+        "Opções": ["A) dir", "B) list", "C) ls", "D) show"],
+        "Alternativa correta": "C"
+    }
+]
