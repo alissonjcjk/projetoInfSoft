@@ -3,90 +3,98 @@ import json
 import time
 from threading import Thread
 
-class TCPServer:
-    def __init__(self, host='0.0.0.0', port=12345):
-        self.host = host
-        self.port = port
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_socket.bind((self.host, self.port))
-        self.server_socket.listen(5)
+class ServidorTCP:
+    def __init__(self, anfitriao='0.0.0.0', porta=12345):
+        self.anfitriao = anfitriao
+        self.porta = porta
+        self.soquete_servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.soquete_servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.soquete_servidor.bind((self.anfitriao, self.porta))
+        self.soquete_servidor.listen(5)
         
-        self.questions = self.load_questions()
-        self.scores = {}
-        self.client_threads = []
+        self.perguntas = self.carregar_perguntas()
+        self.pontuacoes = {}
+        self.threads_clientes = []
         
-    def load_questions(self):
-        with open('/home/CIN/asb3/projetoInfSoft/perguntas/quizPerguntas.json', 'r') as f:
-            return json.load(f)
+    def carregar_perguntas(self):
+        with open('../../perguntas/quizPerguntas.json', 'r') as arquivo:
+            return json.load(arquivo)
     
-    def handle_client(self, client_socket, address):
-        client_id = f"{address[0]}:{address[1]}"
-        self.scores[client_id] = 0
+    def lidar_com_cliente(self, soquete_cliente, endereco):
+        id_cliente = f"{endereco[0]}:{endereco[1]}"
+        self.pontuacoes[id_cliente] = 0
         
-        for i, question in enumerate(self.questions):
-            start_time = time.time()
+        for i, pergunta in enumerate(self.perguntas):
+            inicio = time.time()
             
             # Envia pergunta
-            question_str = f"Pergunta {i+1}: {question['question']}\n"
-            for option in question['options']:
-                question_str += f"{option}\n"
-            client_socket.send(question_str.encode())
+            texto_pergunta = f"Pergunta {i+1}: {pergunta['Pergunta']}\n"
+            for opcao in pergunta['Opções']:
+                texto_pergunta += f"{opcao}\n"
+            soquete_cliente.send(texto_pergunta.encode())
             
             # Recebe resposta
             try:
-                answer = client_socket.recv(1024).decode().strip().upper()
-                response_time = time.time() - start_time
+                resposta = soquete_cliente.recv(1024).decode().strip().upper()
+                tempo_resposta = time.time() - inicio
+
+                # Verifica se cliente saiu
+                if resposta == "SAIR":
+                    print(f"Cliente {id_cliente} saiu do jogo.")
+                    break
                 
                 # Verifica resposta
-                if answer == question['correct_answer']:
-                    score = max(1.0 - (0.1 * len([k for k in self.scores 
-                                                 if self.scores[k] > 0])), 0)
-                    self.scores[client_id] += score
-                    feedback = f"Resposta correta! +{score:.1f} pontos"
+                if resposta == pergunta['Alternativa correta']:
+                    pontuacao = max(1.0 - (0.1 * len([k for k in self.pontuacoes 
+                                                      if self.pontuacoes[k] > 0])), 0)
+                    self.pontuacoes[id_cliente] += pontuacao
+                    retorno = f"Resposta correta! +{pontuacao:.1f} pontos"
                 else:
-                    feedback = "Resposta incorreta!"
+                    retorno = "Resposta incorreta!"
                 
-                client_socket.send(feedback.encode())
+                soquete_cliente.send(retorno.encode())
                 
                 # Envia placar atualizado
-                scoreboard = "\nPlacar:\n"
-                for player, score in self.scores.items():
-                    scoreboard += f"{player}: {score:.1f}\n"
-                client_socket.send(scoreboard.encode())
+                placar = "\nPlacar:\n"
+                for jogador, pontuacao in self.pontuacoes.items():
+                    placar += f"{jogador}: {pontuacao:.1f}\n"
+                soquete_cliente.send(placar.encode())
                 
                 # Registra tempo de resposta
-                print(f"Cliente {client_id} - Tempo resposta: {response_time:.4f}s")
+                print(f"Cliente {id_cliente} - Tempo resposta: {tempo_resposta:.4f}s")
                 
-            except Exception as e:
-                print(f"Erro com cliente {client_id}: {e}")
+            except Exception as erro:
+                print(f"Erro com cliente {id_cliente}: {erro}")
                 break
         
         # Resultado final
-        final_msg = "\nJogo encerrado! Resultado final:\n"
-        for player, score in self.scores.items():
-            final_msg += f"{player}: {score:.1f}\n"
-        client_socket.send(final_msg.encode())
-        client_socket.close()
+        mensagem_final = "\nJogo encerrado! Resultado final:\n"
+        for jogador, pontuacao in self.pontuacoes.items():
+            mensagem_final += f"{jogador}: {pontuacao:.1f}\n"
+        try:
+            soquete_cliente.send(mensagem_final.encode())
+        except BrokenPipeError:
+            print(f"Cliente {id_cliente} desconectado antes do envio final.")
+        soquete_cliente.close()
     
-    def start(self):
-        print(f"Servidor TCP rodando em {self.host}:{self.port}")
+    def iniciar(self):
+        print(f"Servidor TCP rodando em {self.anfitriao}:{self.porta}")
         try:
             while True:
-                client_socket, address = self.server_socket.accept()
-                print(f"Conexão estabelecida com {address}")
+                soquete_cliente, endereco = self.soquete_servidor.accept()
+                print(f"Conexão estabelecida com {endereco}")
                 
-                client_thread = Thread(target=self.handle_client, 
-                                     args=(client_socket, address))
-                client_thread.start()
-                self.client_threads.append(client_thread)
+                thread_cliente = Thread(target=self.lidar_com_cliente, 
+                                        args=(soquete_cliente, endereco))
+                thread_cliente.start()
+                self.threads_clientes.append(thread_cliente)
                 
         except KeyboardInterrupt:
             print("\nEncerrando servidor...")
-            for thread in self.client_threads:
+            for thread in self.threads_clientes:
                 thread.join()
-            self.server_socket.close()
+            self.soquete_servidor.close()
 
 if __name__ == "__main__":
-    server = TCPServer()
-    server.start()
+    servidor = ServidorTCP()
+    servidor.iniciar()

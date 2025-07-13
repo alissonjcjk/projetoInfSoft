@@ -1,42 +1,42 @@
 import socket
 import time
 
-class TCPClient:
-    def __init__(self, server_host='127.0.0.1', server_port=12345):
-        self.server_host = server_host
-        self.server_port = server_port
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+class ClienteTCP:
+    def __init__(self, anfitriao_servidor='127.0.0.1', porta_servidor=12345):
+        self.anfitriao_servidor = anfitriao_servidor
+        self.porta_servidor = porta_servidor
+        self.soquete_cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
-    def connect(self):
-        self.client_socket.connect((self.server_host, self.server_port))
-        print(f"Conectado ao servidor {self.server_host}:{self.server_port}")
+    def conectar(self):
+        self.soquete_cliente.connect((self.anfitriao_servidor, self.porta_servidor))
+        print(f"Conectado ao servidor {self.anfitriao_servidor}:{self.porta_servidor}")
         
         try:
             while True:
                 # Recebe pergunta
-                question_data = self.client_socket.recv(4096).decode()
-                if not question_data:
+                dados_pergunta = self.soquete_cliente.recv(4096).decode()
+                if not dados_pergunta:
                     break
                     
-                print(question_data)
+                print(dados_pergunta)
                 
                 # Simula resposta (na prática seria input do usuário)
-                answer = input("Sua resposta (A/B/C/D): ").upper()
-                start_time = time.time()
-                self.client_socket.send(answer.encode())
+                resposta = input("Sua resposta (A/B/C/D): ").upper()
+                inicio = time.time()
+                self.soquete_cliente.send(resposta.encode())
                 
                 # Recebe feedback e placar
-                feedback = self.client_socket.recv(4096).decode()
-                print(feedback)
+                retorno = self.soquete_cliente.recv(4096).decode()
+                print(retorno)
                 
-                scoreboard = self.client_socket.recv(4096).decode()
-                print(scoreboard)
+                placar = self.soquete_cliente.recv(4096).decode()
+                print(placar)
                 
-        except Exception as e:
-            print(f"Erro na conexão: {e}")
+        except Exception as erro:
+            print(f"Erro na conexão: {erro}")
         finally:
-            self.client_socket.close()
+            self.soquete_cliente.close()
 
 if __name__ == "__main__":
-    client = TCPClient()
-    client.connect()
+    cliente = ClienteTCP()
+    cliente.conectar()

@@ -3,110 +3,110 @@ import json
 import time
 from threading import Thread
 
-class UDPServer:
-    def __init__(self, host='0.0.0.0', port=12346):
-        self.host = host
-        self.port = port
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_socket.bind((self.host, self.port))
+class ServidorUDP:
+    def __init__(self, anfitriao='0.0.0.0', porta=12346):
+        self.anfitriao = anfitriao
+        self.porta = porta
+        self.soquete_servidor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.soquete_servidor.bind((self.anfitriao, self.porta))
         
-        self.questions = self.carregarPerguntas()
-        self.scores = {}
-        self.client_addresses = []
-        self.response_times = {}
+        self.perguntas = self.carregar_perguntas()
+        self.pontuacoes = {}
+        self.enderecos_clientes = []
+        self.tempos_resposta = {}
         
-    def carregarPerguntas(self):
-        with open('/Users/aliss/projetoInfSoft/perguntas/quizPerguntas.json', 'r') as f:
-            return json.load(f)
+    def carregar_perguntas(self):
+        with open('../../perguntas/quizPerguntas.json', 'r') as arquivo:
+            return json.load(arquivo)
     
-    def broadcast_question(self, question, question_num):
-        question_str = f"Pergunta {question_num}: {question['Pergunta']}\n"
-        for option in question["Opcoes"]:
-            question_str += f"{option}\n"
+    def enviar_pergunta(self, pergunta, numero_pergunta):
+        texto_pergunta = f"Pergunta {numero_pergunta}: {pergunta['Pergunta']}\n"
+        for opcao in pergunta["Opções"]:
+            texto_pergunta += f"{opcao}\n"
         
-        for address in self.client_addresses:
-            self.server_socket.sendto(question_str.encode(), address)
+        for endereco in self.enderecos_clientes:
+            self.soquete_servidor.sendto(texto_pergunta.encode(), endereco)
     
-    def update_scoreboard(self):
-        scoreboard = "\nPlacar:\n"
-        for player, score in self.scores.items():
-            scoreboard += f"{player}: {score:.1f}\n"
+    def atualizar_placar(self):
+        placar = "\nPlacar:\n"
+        for jogador, pontuacao in self.pontuacoes.items():
+            placar += f"{jogador}: {pontuacao:.1f}\n"
         
-        for address in self.client_addresses:
-            self.server_socket.sendto(scoreboard.encode(), address)
+        for endereco in self.enderecos_clientes:
+            self.soquete_servidor.sendto(placar.encode(), endereco)
     
-    def handle_responses(self, question, question_num):
-        correct_answers = 0
-        responses = {}
-        question_start = time.time()
+    def tratar_respostas(self, pergunta, numero_pergunta):
+        respostas_corretas = 0
+        respostas = {}
+        inicio_pergunta = time.time()
         
         # Tempo limite para respostas (10 segundos)
-        while time.time() - question_start < 10 and len(responses) < len(self.client_addresses):
+        while time.time() - inicio_pergunta < 10 and len(respostas) < len(self.enderecos_clientes):
             try:
-                self.server_socket.settimeout(1)
-                data, address = self.server_socket.recvfrom(1024)
-                answer = data.decode().strip().upper()
+                self.soquete_servidor.settimeout(1)
+                dados, endereco = self.soquete_servidor.recvfrom(1024)
+                resposta = dados.decode().strip().upper()
                 
-                if address not in responses:
-                    response_time = time.time() - question_start
-                    self.response_times[address] = response_time
-                    responses[address] = answer
+                if endereco not in respostas:
+                    tempo_resposta = time.time() - inicio_pergunta
+                    self.tempos_resposta[endereco] = tempo_resposta
+                    respostas[endereco] = resposta
                     
-                    if answer == question['Alternativa correta']:
-                        correct_answers += 1
-                        score = max(1.0 - (0.1 * (correct_answers - 1)), 0)
-                        client_id = f"{address[0]}:{address[1]}"
-                        self.scores[client_id] = self.scores.get(client_id, 0) + score
-                        feedback = f"Resposta correta! +{score:.1f} pontos"
+                    if resposta == pergunta['Alternativa correta']:
+                        respostas_corretas += 1
+                        pontuacao = max(1.0 - (0.1 * (respostas_corretas - 1)), 0)
+                        id_cliente = f"{endereco[0]}:{endereco[1]}"
+                        self.pontuacoes[id_cliente] = self.pontuacoes.get(id_cliente, 0) + pontuacao
+                        retorno = f"Resposta correta! +{pontuacao:.1f} pontos"
                     else:
-                        feedback = "Resposta incorreta!"
+                        retorno = "Resposta incorreta!"
                     
-                    self.server_socket.sendto(feedback.encode(), address)
+                    self.soquete_servidor.sendto(retorno.encode(), endereco)
             
             except socket.timeout:
                 continue
         
-        self.update_scoreboard()
+        self.atualizar_placar()
     
-    def start(self):
-        print(f"Servidor UDP rodando em {self.host}:{self.port}")
+    def iniciar(self):
+        print(f"Servidor UDP rodando em {self.anfitriao}:{self.porta}")
         
-        # Registra clientes
+        # Registrar clientes
         print("Aguardando clientes se registrarem...")
-        while len(self.client_addresses) < 1:  # Mude para o número desejado de clientes
+        while len(self.enderecos_clientes) < 1:  # Altere conforme o número desejado de clientes
             try:
-                data, address = self.server_socket.recvfrom(1024)
-                if address not in self.client_addresses:
-                    self.client_addresses.append(address)
-                    client_id = f"{address[0]}:{address[1]}"
-                    self.scores[client_id] = 0
-                    print(f"Cliente registrado: {client_id}")
-                    self.server_socket.sendto("Registrado com sucesso!".encode(), address)
-            except Exception as e:
-                print(f"Erro no registro: {e}")
+                dados, endereco = self.soquete_servidor.recvfrom(1024)
+                if endereco not in self.enderecos_clientes:
+                    self.enderecos_clientes.append(endereco)
+                    id_cliente = f"{endereco[0]}:{endereco[1]}"
+                    self.pontuacoes[id_cliente] = 0
+                    print(f"Cliente registrado: {id_cliente}")
+                    self.soquete_servidor.sendto("Registrado com sucesso!".encode(), endereco)
+            except Exception as erro:
+                print(f"Erro no registro: {erro}")
         
-        # Inicia o quiz
-        for i, question in enumerate(self.questions):
+        # Iniciar quiz
+        for i, pergunta in enumerate(self.perguntas):
             print(f"Enviando pergunta {i+1}")
-            self.broadcast_question(question, i+1)
-            self.handle_responses(question, i+1)
+            self.enviar_pergunta(pergunta, i+1)
+            self.tratar_respostas(pergunta, i+1)
         
         # Final do jogo
-        final_msg = "\nJogo encerrado! Resultado final:\n"
-        for player, score in self.scores.items():
-            final_msg += f"{player}: {score:.1f}\n"
+        mensagem_final = "\nJogo encerrado! Resultado final:\n"
+        for jogador, pontuacao in self.pontuacoes.items():
+            mensagem_final += f"{jogador}: {pontuacao:.1f}\n"
         
-        # Adiciona tempos de resposta
-        final_msg += "\nTempos de resposta:\n"
-        for address, resp_time in self.response_times.items():
-            client_id = f"{address[0]}:{address[1]}"
-            final_msg += f"{client_id}: {resp_time:.4f}s\n"
+        # Adicionar tempos de resposta
+        mensagem_final += "\nTempos de resposta:\n"
+        for endereco, tempo in self.tempos_resposta.items():
+            id_cliente = f"{endereco[0]}:{endereco[1]}"
+            mensagem_final += f"{id_cliente}: {tempo:.4f}s\n"
         
-        for address in self.client_addresses:
-            self.server_socket.sendto(final_msg.encode(), address)
+        for endereco in self.enderecos_clientes:
+            self.soquete_servidor.sendto(mensagem_final.encode(), endereco)
         
         print("Jogo encerrado. Servidor finalizado.")
 
 if __name__ == "__main__":
-    server = UDPServer()
-    server.start()
+    servidor = ServidorUDP()
+    servidor.iniciar()
