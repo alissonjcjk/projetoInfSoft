@@ -12,11 +12,8 @@ class HTTPSQuizClient:
 
     def send_request(self, method, path, body=None):
         try:
-            # Cria conexão TCP pura
             with socket.create_connection((self.host, self.port)) as sock:
-                # Envolve com SSL
                 with self.context.wrap_socket(sock, server_hostname=self.host) as ssock:
-                    # Constrói requisição HTTP manualmente
                     request = f"{method} {path} HTTP/1.1\r\n"
                     request += f"Host: {self.host}\r\n"
                     
@@ -31,10 +28,8 @@ class HTTPSQuizClient:
                     
                     ssock.sendall(request.encode())
                     
-                    # Recebe resposta
                     response = ssock.recv(4096).decode()
                     headers, body = response.split('\r\n\r\n', 1)
-                    
                     return json.loads(body)
         
         except Exception as e:
@@ -42,15 +37,57 @@ class HTTPSQuizClient:
             return None
 
     def play(self):
-        # Exemplo de interação
-        question = self.send_request('GET', '/question')
-        print(question['question'])
-        for option in question['options']:
-            print(option)
-        
-        answer = input("Your answer: ")
-        result = self.send_request('POST', '/answer', {'answer': answer})
-        print(result)
+        try:
+            while True:
+                question_data = self.send_request('GET', '/question')
+                
+                if not question_data or 'status' not in question_data:
+                    print("Erro na comunicação com o servidor")
+                    break
+                    
+                if question_data['status'] == 'completed':
+                    print(f"\n🎉 Quiz concluído! Pontuação final: {question_data.get('final_score', 0)}")
+                    break
+                    
+                if question_data['status'] != 'success':
+                    print(f"\nErro: {question_data.get('message', 'Status desconhecido')}")
+                    break
+                
+                print(f"\n📝 Pergunta {question_data['question_number']}/{question_data['total_questions']}:")
+                print(question_data['question'])
+                for option in question_data['options']:
+                    print(f"  {option}")
+                
+                if question_data.get('is_last'):
+                    print("\n⚠️ ATENÇÃO: Esta é a última pergunta!")
+                
+                while True:
+                    answer = input("\nSua resposta (A/B/C/D): ").strip().upper()
+                    if answer in ['A', 'B', 'C', 'D']:
+                        break
+                    print("Resposta inválida! Use apenas A, B, C ou D")
+                
+                result = self.send_request('POST', '/answer', {'answer': answer})
+                
+                if not result or 'status' not in result:
+                    print("Erro ao receber resultado do servidor")
+                    break
+                    
+                if result['correct']:
+                    print("\n✅ Resposta correta!")
+                else:
+                    print(f"\n❌ Resposta incorreta! A correta era {result['correct_answer']}")
+                
+                print(f"📊 Pontuação atual: {result['score']}")
+                
+                if result.get('quiz_completed'):
+                    print(f"\n🎉 Quiz concluído! Pontuação final: {result['score']}")
+                    break
+                    
+        except KeyboardInterrupt:
+            print("\n⏹ Quiz interrompido pelo usuário")
+        except Exception as e:
+            print(f"\n⚠️ Erro inesperado: {str(e)}")
 
 if __name__ == "__main__":
     client = HTTPSQuizClient()
